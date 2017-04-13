@@ -1,4 +1,4 @@
-package com.lpirek.society;
+package com.lpirek.society.map;
 
 import android.content.pm.PackageManager;
 import android.location.Location;
@@ -7,6 +7,7 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.content.ContextCompat;
+import android.support.v7.app.AlertDialog;
 import android.util.Log;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -17,10 +18,15 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.MapStyleOptions;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.lpirek.society.R;
 
-public class MapActivity extends FragmentActivity implements OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
+public class MapActivity extends FragmentActivity implements OnMapReadyCallback, GoogleMap.OnMarkerClickListener,
+        GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
 
     private static final String TAG = MapActivity.class.getSimpleName();
     private static final int DEFAULT_ZOOM = 15;
@@ -41,7 +47,18 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
                 .addApi(Places.GEO_DATA_API)
                 .addApi(Places.PLACE_DETECTION_API)
                 .build();
+    }
+
+    @Override
+    protected void onStart() {
         mGoogleApiClient.connect();
+        super.onStart();
+    }
+
+    @Override
+    protected void onStop() {
+        mGoogleApiClient.disconnect();
+        super.onStop();
     }
 
     @Override
@@ -82,7 +99,8 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
             return;
         }
 
-        mMap.setMyLocationEnabled(checkLocationPermission());
+        mMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, R.raw.style));
+        mMap.setOnMarkerClickListener(this);
     }
 
     private void updateDeviceLocation() {
@@ -92,12 +110,27 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
 
         if (checkLocationPermission()) {
             mLastKnownLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
-            LatLng currentPlace = new LatLng(mLastKnownLocation.getLatitude(), mLastKnownLocation.getLongitude());
 
-            mMap.clear();
-            mMap.addMarker(new MarkerOptions().position(currentPlace).title("You're here!"));
-            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(currentPlace, DEFAULT_ZOOM));
+            if (mLastKnownLocation != null) {
+                LatLng currentPlace = new LatLng(mLastKnownLocation.getLatitude(), mLastKnownLocation.getLongitude());
+
+                mMap.clear();
+                mMap.addMarker(new MarkerOptions().position(currentPlace).title("You're here!")
+                        .icon(BitmapDescriptorFactory.fromResource(R.mipmap.person_happy)));
+                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(currentPlace, DEFAULT_ZOOM));
+            } 
+            else {
+                showUnknowLocationMessage();
+            }
         }
+    }
+
+    private void showUnknowLocationMessage() {
+        new AlertDialog.Builder(this)
+                .setTitle("Błąd")
+                .setMessage("Nie można ustalić Twojej lokalizacji")
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .show();
     }
 
     private boolean checkLocationPermission() {
@@ -106,4 +139,9 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
     }
 
 
+    @Override
+    public boolean onMarkerClick(Marker marker) {
+        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(marker.getPosition(), DEFAULT_ZOOM));
+        return true;
+    }
 }
